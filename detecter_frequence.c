@@ -5,72 +5,66 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define PROFONDEUR 4
+
 int	ft_rand(int min, int max);
 
-void 	aff_res(long **occ)
+void	decaler_tab(unsigned char* tab, unsigned int size)
 {
-	int i = 0;
-	int j;
-	int a;
-	long k = 0;
+	int	i = size - 2;
 
-	while (i < 256)
+	while (i >= 0)
 	{
-		j = 0;
-		a = 0;
-		while (j < 256)
-		{
-			if (occ[i][j])
-				a = 1;
-			j++;
-		}
-		if (a)
-		{
-			j = 0;
-			k = 0;
-			printf("%c (%#hhx) :\n", i, i);
-			while (j < 256)
-			{
-				if (occ[i][j])
-					printf("\t%c (%#hhx) : %ld\n", j, j, occ[i][j]);
-				k += occ[i][j];
-				j++;
-			}
-	//		printf("\t\ttotal : %ld\n", k);
-		}
-		i++;
+		tab[i + 1] = tab[i];
+		i--;
 	}
 }
 
-long	**read_words()
+void	increment_occ(unsigned char* tab, void *occ, unsigned int size)
 {
-	unsigned char b = '\n';
-	unsigned char a = 'a';
-	long **occ;
-	int i = 0;
+	if (size == 1)
+	{
+		((long*)occ)[*tab]++;
+	}
+	else
+	{
+		if (((void**)occ)[tab[size - 1]] == NULL)
+		{
+			((void**)occ)[tab[size - 1]] = malloc(sizeof(long*) * 256);
+			bzero(((void**)occ)[tab[size - 1]], sizeof(long*) * 256);
+		}
+		increment_occ(tab, ((void**)occ)[tab[size - 1]], size - 1);
+	}
+}
 
-	occ = malloc(sizeof(long*) * 256);
-	while (i < 256)
+long	*return_1d_tab(unsigned char* tab, void *occ, unsigned int size)
+{
+	if (size == 1)
+		return (occ);
+	else
+		return return_1d_tab(tab, ((void**)occ)[tab[size - 1]], size - 1);
+}
+
+void	read_words(void *occ, int profondeur)
+{
+	unsigned char* tab;
+
+	tab = malloc(sizeof(unsigned char*) * profondeur);
+	memset(tab, '\n', profondeur);
+	while (read(0, tab, 1) == 1)
 	{
-		occ[i] = malloc(sizeof(long) * 256);
-		bzero(occ[i], sizeof(sizeof(long) * 256));
-		i++;
-	}
-	while (read(0, &a, 1) == 1)
-	{
-		if (a && a !='\n' && a != 0x0d)
+		if (profondeur == 1 || (tab[0] && tab[0] !='\n' && tab[0] != 0x0d))
 		{
-			occ[b][a] += 1;
-			b = a;
+			increment_occ(tab, occ, profondeur);
+			decaler_tab(tab, profondeur);
 		}
-		else if (b && b !='\n' && b != 0x0d)
+		else if (profondeur > 1 && tab[1] && tab[1] !='\n' && tab[1] != 0x0d)
 		{
-			occ[b]['N'] += 1;
-			b = '\n';
+			tab[0] = '\n';
+			increment_occ(tab, occ, profondeur);
+			memset(tab, '\n', profondeur);
 		}
-		a = 0;
 	}
-	return (occ);
 }
 
 int nb_tot_in_tab(long *tab)
@@ -100,23 +94,29 @@ char choose_in_tab(long *tab, int nb)
 	return (0);
 }
 
-void create_word(long **tab, unsigned char first)
+void create_word(long ***occ, unsigned char* tab, int profondeur)
 {
-	while (first != 'N')
-	{
-		first = choose_in_tab(tab[first], ft_rand(0, nb_tot_in_tab(tab[first])));
-		if (first != 'N')
-			write(1, &first, 1);
-	}
-	write(1, "\n", 1);
+	do {
+		decaler_tab(tab, profondeur);
+		tab[0] = choose_in_tab(return_1d_tab(tab, occ, profondeur), ft_rand(0, nb_tot_in_tab(return_1d_tab(tab, occ, profondeur))));
+		write(1, tab, 1);
+	} while (tab[0] != '\n');
 }
 
 int	main(int argc, char **argv)
 {
-	long **tab;
+	void *tab;
+	unsigned char* a;
 
-	tab = read_words();
-	//aff_res(tab);
+	if (PROFONDEUR <= 0)
+		return (-1);
+	tab = malloc(sizeof(void*) * 256);
+	bzero(tab, sizeof(long*) * 256);
+	read_words(tab, PROFONDEUR);
+	a = malloc(sizeof(unsigned char*) * PROFONDEUR);
 	for(int i = 0; i < 50; i++)
-		create_word(tab, '\n');
+	{
+		memset(a, '\n', sizeof(unsigned char*) * PROFONDEUR);
+		create_word(tab, a, PROFONDEUR);
+	}
 }
